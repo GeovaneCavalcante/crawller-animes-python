@@ -10,12 +10,14 @@ from ..repositories.animes_repository import AnimesRepository
 from ..helpers import cleaner
 from ..entities.season import Season
 from ..entities.episode import Episode
+from .manager_animes import ManagerAnimes
 
 
 class PageParser:
 
     def __init__(self) -> None:
         self.animes_repository = AnimesRepository()
+        self.manager_animes = ManagerAnimes()
 
     def get_all_pagination(self):
         url = 'https://animesonline.cc/anime/'
@@ -59,19 +61,27 @@ class PageParser:
 
             link_content = raw_anime.find(class_='poster')
             link_anime = link_content.find('a')['href']
+            name_anime = raw_title.find('a').string
+            saved_anime = self.manager_animes.check_saved_anime(
+                name_anime)
             info_anime = self.get_anime_detail(link_anime)
-            anime = {
-                'category': 'dublados',
-                'banner': raw_anime.find('img')['src'],
-                'name': raw_title.find('a').string,
-                'note': raw_anime.find(class_='rating').text.strip(),
-                'description': info_anime['description'],
-                'genres': info_anime['genres'],
-                'year': info_anime['year'],
-                'seasons': info_anime['seasons'],
-            }
-            self.animes_repository.create(anime)
-            animes_list.append(anime)
+
+            if not saved_anime:
+                anime = {
+                    'category': 'dublados',
+                    'banner': raw_anime.find('img')['src'],
+                    'name': name_anime,
+                    'note': raw_anime.find(class_='rating').text.strip(),
+                    'description': info_anime['description'],
+                    'genres': info_anime['genres'],
+                    'year': info_anime['year'],
+                    'seasons': info_anime['seasons'],
+                }
+                self.animes_repository.create(anime)
+                animes_list.append(anime)
+            else:
+                self.animes_repository.update_one(
+                    saved_anime['_id'], info_anime['seasons'])
 
     def get_anime_detail(self, link_anime):
         print("Link ---- ", link_anime)
